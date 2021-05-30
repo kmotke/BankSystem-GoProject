@@ -65,19 +65,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func add(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Add("content-type", "application/json")
-	var amount Account
-	json.NewDecoder(r.Body).Decode(&amount)
-
-	result, _ := accColl.UpdateOne(context.TODO(), amount, amount.AccountNumber)
-	json.NewEncoder(w).Encode(result)
-
-}
-
 func main() {
-
 	//   Connect to my cluster
 	var err error
 
@@ -102,7 +90,6 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/api/create-user", createUser).Methods("POST")
-	router.HandleFunc("/api/add", add).Methods("POST")
 
 	fmt.Println("Application running...")
 	log.Fatal(http.ListenAndServe(":9090", router))
