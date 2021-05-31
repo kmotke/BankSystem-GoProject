@@ -130,6 +130,7 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/api/create-user", createUser).Methods("POST")
 	router.HandleFunc("/api/add", addbalance).Methods("POST")
+	router.HandleFunc("/api/withdraw", withdraw).Methods("POST")
 
 	fmt.Println("Application running...")
 	log.Fatal(http.ListenAndServe(":9090", router))
