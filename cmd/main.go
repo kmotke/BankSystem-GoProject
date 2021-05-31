@@ -26,7 +26,7 @@ type Account struct {
 	ID            primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	UserID        primitive.ObjectID `json:"user_id,omitempty" bson:"user_id,omitempty"`
 	AccountNumber int                `json:"accno,omitempty" bson:"accno,omitempty"`
-	Balance       int                `json:"balance,omitempty" bson:"balance,omitempty"`
+	Balance       float64            `json:"balance" bson:"balance"`
 }
 
 var client *mongo.Client
@@ -49,7 +49,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	result, _ := userColl.InsertOne(context.TODO(), user)
 	accno := Account{
 		AccountNumber: user.AccountNumber,
-		Balance:       0,
+		Balance:       0.0,
 	}
 
 	accno.UserID = result.InsertedID.(primitive.ObjectID)
@@ -62,6 +62,45 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(result)
+
+}
+
+func addbalance(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("content-type", "application/json")
+
+	var amount Account
+	json.NewDecoder(r.Body).Decode(&amount)
+
+	filter := bson.M{"accno": amount.AccountNumber}
+	update := bson.M{"$inc": bson.M{"balance": amount.Balance}}
+	result, err := accColl.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		str := []interface{}{"Failed to Update Balance"}
+		json.NewEncoder(w).Encode(str)
+		return
+	}
+	json.NewEncoder(w).Encode(result)
+}
+
+func withdraw(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("content-type", "application/json")
+
+	var amount Account
+	json.NewDecoder(r.Body).Decode(&amount)
+
+	filter := bson.M{"accno": amount.AccountNumber}
+	update := bson.M{"$inc": bson.M{"balance": -amount.Balance}}
+	result, err := accColl.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		str := []interface{}{"Failed to Update Balance"}
+		json.NewEncoder(w).Encode(str)
+		return
+	}
+	json.NewEncoder(w).Encode(result)
+}
+
+func getuser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("content-type", "application/json")
 
 }
 
@@ -90,6 +129,7 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/api/create-user", createUser).Methods("POST")
+	router.HandleFunc("/api/add", addbalance).Methods("POST")
 
 	fmt.Println("Application running...")
 	log.Fatal(http.ListenAndServe(":9090", router))
