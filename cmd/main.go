@@ -29,6 +29,12 @@ type Account struct {
 	Balance       float64            `json:"balance" bson:"balance"`
 }
 
+type Transfer struct {
+	FromAccount int     `json:"fromacc" bson:"fromacc"`
+	ToAcccount  int     `json:"toacc" bson:"toacc"`
+	Amount      float64 `json:"amount" bson:"amount"`
+}
+
 var client *mongo.Client
 var userColl *mongo.Collection
 var accColl *mongo.Collection
@@ -71,6 +77,13 @@ func addbalance(w http.ResponseWriter, r *http.Request) {
 	var amount Account
 	json.NewDecoder(r.Body).Decode(&amount)
 
+	err := userColl.FindOne(context.TODO(), bson.M{"accno": amount.AccountNumber}).Decode(&amount)
+	if err != nil {
+		str := []interface{}{"Account Not Found"}
+		json.NewEncoder(w).Encode(str)
+		return
+	}
+
 	filter := bson.M{"accno": amount.AccountNumber}
 	update := bson.M{"$inc": bson.M{"balance": amount.Balance}}
 	result, err := accColl.UpdateOne(context.TODO(), filter, update)
@@ -87,7 +100,20 @@ func withdraw(w http.ResponseWriter, r *http.Request) {
 
 	var amount Account
 	json.NewDecoder(r.Body).Decode(&amount)
+	var account Account
+	err := accColl.FindOne(context.TODO(), bson.M{"accno": amount.AccountNumber}).Decode(&account)
+	if err != nil {
+		str := []interface{}{"Account Not Found"}
+		json.NewEncoder(w).Encode(str)
+		return
+	}
 
+	temp := account.Balance - amount.Balance
+	if temp < 0 {
+		str := []interface{}{"Insufficient Funds"}
+		json.NewEncoder(w).Encode(str)
+		return
+	}
 	filter := bson.M{"accno": amount.AccountNumber}
 	update := bson.M{"$inc": bson.M{"balance": -amount.Balance}}
 	result, err := accColl.UpdateOne(context.TODO(), filter, update)
@@ -97,11 +123,6 @@ func withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(result)
-}
-
-func getuser(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("content-type", "application/json")
-
 }
 
 func main() {
@@ -131,6 +152,8 @@ func main() {
 	router.HandleFunc("/api/create-user", createUser).Methods("POST")
 	router.HandleFunc("/api/add", addbalance).Methods("POST")
 	router.HandleFunc("/api/withdraw", withdraw).Methods("POST")
+	router.HandleFunc("/api/transfer", transfer).Methods("POST")
+	router.HandleFunc("/api/delete", delete).Methods("POST")
 
 	fmt.Println("Application running...")
 	log.Fatal(http.ListenAndServe(":9090", router))
